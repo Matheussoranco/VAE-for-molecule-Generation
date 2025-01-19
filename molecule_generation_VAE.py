@@ -114,3 +114,18 @@ def graph_to_molecule(graph):
         return None
 
     return molecule
+
+train_df = df.sample(frac=0.75, random_state=42)
+train_df.reset_index(drop=True, inplace=True)
+
+adjacency_tensor, feature_tensor, qed_tensor = [], [], []
+for idx in range(8000):
+    adjacency, features = smiles_to_graph(train_df.loc[idx]["smiles"])
+    qed = train_df.loc[idx]["qed"]
+    adjacency_tensor.append(adjacency)
+    feature_tensor.append(features)
+    qed_tensor.append(qed)
+
+adjacency_tensor = np.array(adjacency_tensor)
+feature_tensor = np.array(feature_tensor)
+qed_tensor = np.array(qed_tensor)
