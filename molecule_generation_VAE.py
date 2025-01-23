@@ -192,16 +192,13 @@ def get_encoder(
     adjacency = layers.Input(shape=adjacency_shape)
     features = layers.Input(shape=feature_shape)
 
-    # Propagate through one or more graph convolutional layers
     features_transformed = features
     for units in gconv_units:
         features_transformed = RelationalGraphConvLayer(units)(
             [adjacency, features_transformed]
         )
-    # Reduce 2-D representation of molecule to 1-D
     x = layers.GlobalAveragePooling1D()(features_transformed)
 
-    # Propagate through one or more densely connected layers
     for units in dense_units:
         x = layers.Dense(units, activation="relu")(x)
         x = layers.Dropout(dropout_rate)(x)
@@ -238,3 +235,14 @@ def get_decoder(dense_units, dropout_rate, latent_dim, adjacency_shape, feature_
     )
 
     return decoder
+
+class Sampling(layers.Layer):
+    def __init__(self, seed=None, **kwargs):
+        super().__init__(**kwargs)
+        self.seed_generator = keras.random.SeedGenerator(seed)
+
+    def call(self, inputs):
+        z_mean, z_log_var = inputs
+        batch, dim = ops.shape(z_log_var)
+        epsilon = keras.random.normal(shape=(batch, dim), seed=self.seed_generator)
+        return z_mean + ops.exp(0.5 * z_log_var) * epsilon
