@@ -185,3 +185,56 @@ class RelationalGraphConvLayer(keras.layers.Layer):
             x += self.bias
         x_reduced = ops.sum(x, axis=1)
         return self.activation(x_reduced)
+    
+def get_encoder(
+    gconv_units, latent_dim, adjacency_shape, feature_shape, dense_units, dropout_rate
+):
+    adjacency = layers.Input(shape=adjacency_shape)
+    features = layers.Input(shape=feature_shape)
+
+    # Propagate through one or more graph convolutional layers
+    features_transformed = features
+    for units in gconv_units:
+        features_transformed = RelationalGraphConvLayer(units)(
+            [adjacency, features_transformed]
+        )
+    # Reduce 2-D representation of molecule to 1-D
+    x = layers.GlobalAveragePooling1D()(features_transformed)
+
+    # Propagate through one or more densely connected layers
+    for units in dense_units:
+        x = layers.Dense(units, activation="relu")(x)
+        x = layers.Dropout(dropout_rate)(x)
+
+    z_mean = layers.Dense(latent_dim, dtype="float32", name="z_mean")(x)
+    log_var = layers.Dense(latent_dim, dtype="float32", name="log_var")(x)
+
+    encoder = keras.Model([adjacency, features], [z_mean, log_var], name="encoder")
+
+    return encoder
+
+def get_decoder(dense_units, dropout_rate, latent_dim, adjacency_shape, feature_shape):
+    latent_inputs = keras.Input(shape=(latent_dim,))
+
+    x = latent_inputs
+    for units in dense_units:
+        x = layers.Dense(units, activation="tanh")(x)
+        x = layers.Dropout(dropout_rate)(x)
+
+    # Map outputs of previous layer (x) to [continuous] adjacency tensors (x_adjacency)
+    x_adjacency = layers.Dense(np.prod(adjacency_shape))(x)
+    x_adjacency = layers.Reshape(adjacency_shape)(x_adjacency)
+    # Symmetrify tensors in the last two dimensions
+    x_adjacency = (x_adjacency + ops.transpose(x_adjacency, (0, 1, 3, 2))) / 2
+    x_adjacency = layers.Softmax(axis=1)(x_adjacency)
+
+    # Map outputs of previous layer (x) to [continuous] feature tensors (x_features)
+    x_features = layers.Dense(np.prod(feature_shape))(x)
+    x_features = layers.Reshape(feature_shape)(x_features)
+    x_features = layers.Softmax(axis=2)(x_features)
+
+    decoder = keras.Model(
+        latent_inputs, outputs=[x_adjacency, x_features], name="decoder"
+    )
+
+    return decoder
