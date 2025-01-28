@@ -246,3 +246,35 @@ class Sampling(layers.Layer):
         batch, dim = ops.shape(z_log_var)
         epsilon = keras.random.normal(shape=(batch, dim), seed=self.seed_generator)
         return z_mean + ops.exp(0.5 * z_log_var) * epsilon
+    
+class MoleculeGenerator(keras.Model):
+    def __init__(self, encoder, decoder, max_len, seed=None, **kwargs):
+        super().__init__(**kwargs)
+        self.encoder = encoder
+        self.decoder = decoder
+        self.property_prediction_layer = layers.Dense(1)
+        self.max_len = max_len
+        self.seed_generator = keras.random.SeedGenerator(seed)
+        self.sampling_layer = Sampling(seed=seed)
+
+        self.train_total_loss_tracker = keras.metrics.Mean(name="train_total_loss")
+        self.val_total_loss_tracker = keras.metrics.Mean(name="val_total_loss")
+        
+    def train_step(self, data):
+        adjacency_tensor, feature_tensor, qed_tensor = data[0]
+        graph_real = [adjacency_tensor, feature_tensor]
+        self.batch_size = ops.shape(qed_tensor)[0]
+        with tf.GradientTape() as tape:
+            z_mean, z_log_var, qed_pred, gen_adjacency, gen_features = self(
+                graph_real, training=True
+            )
+            graph_generated = [gen_adjacency, gen_features]
+            total_loss = self._compute_loss(
+                z_log_var, z_mean, qed_tensor, qed_pred, graph_real, graph_generated
+            )
+
+        grads = tape.gradient(total_loss, self.trainable_weights)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
+
+        self.train_total_loss_tracker.update_state(total_loss)
+        return {"loss": self.train_total_loss_tracker.result()}
