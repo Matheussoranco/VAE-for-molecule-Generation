@@ -30,7 +30,6 @@ df = pd.read_csv(csv_path)
 df["smiles"] = df["smiles"].apply(lambda s: s.replace("\n", ""))
 df.head()
 
----
 ## Hyperparameters
 SMILE_CHARSET = '["C", "B", "F", "I", "H", "O", "N", "S", "P", "Cl", "Br"]'
 
