@@ -343,5 +343,33 @@ class MoleculeGenerator(keras.Model):
             ops.mean(grads_adjacency_penalty, axis=(-2, -1))
             + ops.mean(grads_features_penalty, axis=(-1))
         )
+        
+    def inference(self, batch_size):
+        z = keras.random.normal(
+            shape=(batch_size, LATENT_DIM), seed=self.seed_generator
+        )
+        reconstruction_adjacency, reconstruction_features = model.decoder.predict(z)
+        # obtain one-hot encoded adjacency tensor
+        adjacency = ops.argmax(reconstruction_adjacency, axis=1)
+        adjacency = ops.one_hot(adjacency, num_classes=BOND_DIM, axis=1)
+        # Remove potential self-loops from adjacency
+        adjacency = adjacency * (1.0 - ops.eye(NUM_ATOMS, dtype="float32")[None, None])
+        # obtain one-hot encoded feature tensor
+        features = ops.argmax(reconstruction_features, axis=2)
+        features = ops.one_hot(features, num_classes=ATOM_DIM, axis=2)
+        return [
+            graph_to_molecule([adjacency[i].numpy(), features[i].numpy()])
+            for i in range(batch_size)
+        ]
+
+    def call(self, inputs):
+        z_mean, log_var = self.encoder(inputs)
+        z = self.sampling_layer([z_mean, log_var])
+
+        gen_adjacency, gen_features = self.decoder(z)
+
+        property_pred = self.property_prediction_layer(z_mean)
+
+        return z_mean, log_var, property_pred, gen_adjacency, gen_features
 
 
