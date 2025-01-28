@@ -397,4 +397,17 @@ MolsToGridImage(
     [m for m in molecules if m is not None][:1000], molsPerRow=5, subImgSize=(260, 160)
 )
 
+def plot_latent(vae, data, labels):
+    z_mean, _ = vae.encoder.predict(data)
+    plt.figure(figsize=(12, 10))
+    plt.scatter(z_mean[:, 0], z_mean[:, 1], c=labels)
+    plt.colorbar()
+    plt.xlabel("z[0]")
+    plt.ylabel("z[1]")
+    plt.show()
+
+
+plot_latent(model, [adjacency_tensor[:8000], feature_tensor[:8000]], qed_tensor[:8000])
+
+
 
