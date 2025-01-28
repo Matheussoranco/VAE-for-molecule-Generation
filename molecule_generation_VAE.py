@@ -368,7 +368,7 @@ class MoleculeGenerator(keras.Model):
 
         return z_mean, log_var, property_pred, gen_adjacency, gen_features
     
-    vae_optimizer = keras.optimizers.Adam(learning_rate=VAE_LR)
+vae_optimizer = keras.optimizers.Adam(learning_rate=VAE_LR)
 
 encoder = get_encoder(
     gconv_units=[9],
