@@ -371,5 +371,28 @@ class MoleculeGenerator(keras.Model):
         property_pred = self.property_prediction_layer(z_mean)
 
         return z_mean, log_var, property_pred, gen_adjacency, gen_features
+    
+    vae_optimizer = keras.optimizers.Adam(learning_rate=VAE_LR)
+
+encoder = get_encoder(
+    gconv_units=[9],
+    adjacency_shape=(BOND_DIM, NUM_ATOMS, NUM_ATOMS),
+    feature_shape=(NUM_ATOMS, ATOM_DIM),
+    latent_dim=LATENT_DIM,
+    dense_units=[512],
+    dropout_rate=0.0,
+)
+decoder = get_decoder(
+    dense_units=[128, 256, 512],
+    dropout_rate=0.2,
+    latent_dim=LATENT_DIM,
+    adjacency_shape=(BOND_DIM, NUM_ATOMS, NUM_ATOMS),
+    feature_shape=(NUM_ATOMS, ATOM_DIM),
+)
+
+model = MoleculeGenerator(encoder, decoder, MAX_MOLSIZE)
+
+model.compile(vae_optimizer)
+history = model.fit([adjacency_tensor, feature_tensor, qed_tensor], epochs=EPOCHS)
 
 
