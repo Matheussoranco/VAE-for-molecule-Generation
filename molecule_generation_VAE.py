@@ -278,3 +278,37 @@ class MoleculeGenerator(keras.Model):
 
         self.train_total_loss_tracker.update_state(total_loss)
         return {"loss": self.train_total_loss_tracker.result()}
+    
+    def _compute_loss(
+        self, z_log_var, z_mean, qed_true, qed_pred, graph_real, graph_generated
+    ):
+        adjacency_real, features_real = graph_real
+        adjacency_gen, features_gen = graph_generated
+
+        adjacency_loss = ops.mean(
+            ops.sum(
+                keras.losses.categorical_crossentropy(
+                    adjacency_real, adjacency_gen, axis=1
+                ),
+                axis=(1, 2),
+            )
+        )
+        features_loss = ops.mean(
+            ops.sum(
+                keras.losses.categorical_crossentropy(features_real, features_gen),
+                axis=(1),
+            )
+        )
+        kl_loss = -0.5 * ops.sum(
+            1 + z_log_var - z_mean**2 - ops.minimum(ops.exp(z_log_var), 1e6), 1
+        )
+        kl_loss = ops.mean(kl_loss)
+
+        property_loss = ops.mean(
+            keras.losses.binary_crossentropy(qed_true, ops.squeeze(qed_pred, axis=1))
+        )
+
+        graph_loss = self._gradient_penalty(graph_real, graph_generated)
+
+        return kl_loss + property_loss + graph_loss + adjacency_loss + features_loss
+
