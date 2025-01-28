@@ -1,4 +1,4 @@
-#!pip -q install rdkit-pypi==2021.9.4
+#!pip -q install rdkit-pypi
 
 import os
 
@@ -313,11 +313,9 @@ class MoleculeGenerator(keras.Model):
         return kl_loss + property_loss + graph_loss + adjacency_loss + features_loss
     
     def _gradient_penalty(self, graph_real, graph_generated):
-        # Unpack graphs
         adjacency_real, features_real = graph_real
         adjacency_generated, features_generated = graph_generated
 
-        # Generate interpolated graphs (adjacency_interp and features_interp)
         alpha = keras.random.uniform(shape=(self.batch_size,), seed=self.seed_generator)
         alpha = ops.reshape(alpha, (self.batch_size, 1, 1, 1))
         adjacency_interp = (adjacency_real * alpha) + (
@@ -334,7 +332,6 @@ class MoleculeGenerator(keras.Model):
                 [adjacency_interp, features_interp], training=True
             )
 
-        # Compute the gradients with respect to the interpolated graphs
         grads = tape.gradient(logits, [adjacency_interp, features_interp])
         # Compute the gradient penalty
         grads_adjacency_penalty = (1 - ops.norm(grads[0], axis=1)) ** 2
