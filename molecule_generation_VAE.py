@@ -391,4 +391,10 @@ model = MoleculeGenerator(encoder, decoder, MAX_MOLSIZE)
 model.compile(vae_optimizer)
 history = model.fit([adjacency_tensor, feature_tensor, qed_tensor], epochs=EPOCHS)
 
+molecules = model.inference(1000)
+
+MolsToGridImage(
+    [m for m in molecules if m is not None][:1000], molsPerRow=5, subImgSize=(260, 160)
+)
+
 
